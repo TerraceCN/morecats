@@ -6,6 +6,7 @@ services:
     image: terracecn/morecats
     restart: always
     environment:
+      HOST: 0.0.0.0
       CAT_IMAGE_DIR: /var/morecats/images
     volumes:
       - ./cat_images:/var/morecats/images
