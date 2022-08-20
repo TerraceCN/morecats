@@ -70,7 +70,7 @@ async def handle_image(event: Event, bot: OneBotV11Bot):
 
     for segment in event.get_message():
         if segment.type == "text":
-            if re.match(f"^/cat_prob$", segment.data["text"]):
+            if re.match(f"^/cat_prob$", segment.data["text"].strip()):
                 output_prob = True
         if segment.type == "image":
             url: str = segment.data["url"]
