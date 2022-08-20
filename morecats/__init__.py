@@ -89,7 +89,7 @@ async def handle_image(event: Event, bot: OneBotV11Bot):
                 probs.append(-1)
                 return
             
-            if prob > 0.5:
+            if prob >= 0.6:
                 logger.info(f"Cat[{prob:.4f}]({int((etime - stime) * 1000)}ms): {filename}")
                 save_image(image, filename)
 
