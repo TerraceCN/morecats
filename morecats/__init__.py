@@ -42,10 +42,6 @@ async def read_image(url: str) -> Tuple[ImageExt, BytesIO]:
 
 def predict_image(data: BytesIO) -> np.ndarray:
     with Image.open(data) as img:
-        w, h = img.size
-        if w / h > 2 or h / w > 2:
-            return False
-
         prob = cat_model.predict_prob(img.convert("RGB"))
         return prob
 
