@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  morecats:
+    build: .
+    image: terracecn/morecats
+    restart: always
+    environment:
+      CAT_IMAGE_DIR: /var/morecats/images
+    volumns:
+      - ./images:/var/morecats/images
+    ports:
+      - 8080:8080
+      
