@@ -31,6 +31,14 @@ async def load_hashes():
             break
 
 
+async def reload_hashes():
+    """
+    Reload neural hash data from database to memory
+    """
+    HASHES.clear()
+    await load_hashes()
+
+
 async def has_similar(bits: np.ndarray) -> float:
     """
     Find similar images

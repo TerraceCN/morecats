@@ -1,24 +1,23 @@
 # -*- coding: utf-8 -*-
 import os
 import re
-import imghdr
 import time
-from io import BytesIO
-from typing import Literal, Tuple
 from datetime import datetime
 
-from nonebot import on_message, get_driver
+from nonebot import get_driver, on_message, on_command
 from nonebot.adapters import Event
 from nonebot.adapters.onebot.v11 import Bot as OneBotV11Bot
+from nonebot.adapters.onebot.v11.message import Message, MessageSegment
 from nonebot.log import logger
 
-from httpx import AsyncClient
-from PIL import Image as PILImage
+import sqlalchemy as sa
+from PIL import Image
 
 from .models import CatOrNot, NeuralHash
-from .config import Config
 from .database import ImageTB, db
-from . import deduplication
+from .deduplication import has_similar, add_hash
+from .image_utils import read_image, save_image
+from .config import Config
 
 driver = get_driver()
 conf = Config.parse_obj(driver.config)
@@ -28,46 +27,9 @@ hash_model = NeuralHash(
     "./models/neuralhash.onnx", "./models/neuralhash_128x96_seed1.dat"
 )
 
-ImageExt = Literal["gif", "jpeg", "png", "bmp"]
-
 matcher = on_message()
-
-
-async def read_image(url: str) -> Tuple[ImageExt, BytesIO]:
-    """
-    Read image from url
-
-    :params url: image url
-    :return: image extension, PIL Image object
-    """
-    async with AsyncClient() as client:
-        resp = await client.get(url)
-        resp.raise_for_status()
-
-    image = BytesIO(resp.content)
-    ext = imghdr.what(image)
-    if ext not in ("gif", "jpeg", "png", "bmp"):
-        raise ValueError(f"Unsupported image format {ext}")
-
-    image.seek(0)
-    return ext, PILImage.open(image)
-
-
-def save_image(image: PILImage.Image, filename: str) -> None:
-    """
-    Save PIL Image object to file
-
-    :params image: PIL Image object
-    :params filename: filename
-    """
-    if not conf.cat_image_dir:
-        return
-
-    if not os.path.exists(conf.cat_image_dir):
-        os.makedirs(conf.cat_image_dir)
-    
-    image_path = os.path.join(conf.cat_image_dir, filename)
-    image.save(image_path)
+random_cat = on_command("random_cat")
+rcat = on_command("rcat")
 
 
 @driver.on_startup
@@ -76,7 +38,7 @@ async def initialize():
 
 
 @matcher.handle()
-async def handle_image(event: Event, bot: OneBotV11Bot):
+async def handle_images(event: Event, bot: OneBotV11Bot):
     probs = [] # Probabilities of image being a cat
     output_prob = False # Whether to output probability
 
@@ -91,7 +53,7 @@ async def handle_image(event: Event, bot: OneBotV11Bot):
 
             try:
                 ext, image = await read_image(url)
-                static_image = image.convert("RGB") # Convert GIF image to static image (1st frame)
+                static_image = Image.open(image).convert("RGB") # Convert GIF image to static image (1st frame)
             except Exception as e:
                 logger.error(f"Failed to read image: {e}")
                 return
@@ -132,7 +94,7 @@ async def handle_image(event: Event, bot: OneBotV11Bot):
 
                 stime = time.time()
                 nhash_bits = hash_model.calc_bits(static_image) # Calc neural hash bits
-                similarity = await deduplication.has_similar(nhash_bits) # Find similar images
+                similarity = await has_similar(nhash_bits) # Find similar images
                 etime = time.time()
 
                 if similarity >= 0.9: # If the image is similar to a recorded image
@@ -152,11 +114,31 @@ async def handle_image(event: Event, bot: OneBotV11Bot):
                     )
                 )
                 save_image(image, filename)
-                await deduplication.add_hash(nhash_bits)
+                await add_hash(nhash_bits)
 
     if output_prob:
         await matcher.finish(
             "猫猫概率:\n"
             + "\n".join(f"[{i + 1}] {p:.4f}" for i, p in enumerate(probs))
         )
-    
+
+
+
+@random_cat.handle()
+@rcat.handle()
+async def get_random_cat():
+    record = await db.fetch_one(
+        ImageTB
+        .select()
+        .order_by(sa.sql.expression.func.random())
+        .limit(1)
+    )
+
+    if not record:
+        await matcher.finish("没有发现猫猫")
+    elif not conf.cat_image_dir:
+        await matcher.finish("没有配置图片目录")
+    else:
+        with open(os.path.join(conf.cat_image_dir, record.filename), "rb") as f:
+            image = MessageSegment.image(f.read())
+        await matcher.finish(Message(image))
