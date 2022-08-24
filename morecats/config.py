@@ -5,3 +5,5 @@ from pydantic import BaseModel, Extra
 
 class Config(BaseModel, extra=Extra.ignore):
     cat_image_dir: Optional[str]
+    cat_image_sqlite: str
+    
