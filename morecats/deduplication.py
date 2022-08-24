@@ -9,6 +9,9 @@ HASHES = []
 
 
 async def load_hashes():
+    """
+    Load neural hash data from database to memory
+    """
     last_id = 0
     while True:
         records = await db.fetch_all(
@@ -27,6 +30,12 @@ async def load_hashes():
 
 
 async def has_similar(bits: np.ndarray) -> float:
+    """
+    Find similar images
+
+    :param bits: Neural hash bits
+    :return: Similarity
+    """
     max_similarity = 0
     for i in HASHES:
         similarity = np.bitwise_xor(~bits, i).sum(1).max() / i.shape[1]
@@ -36,6 +45,11 @@ async def has_similar(bits: np.ndarray) -> float:
 
 
 async def add_hash(bits: np.ndarray):
+    """
+    Add neural hash
+
+    :param bits: Neural hash bits
+    """
     if len(HASHES) == 0 or HASHES[-1].shape[0] >= 10000:
         HASHES.append(np.expand_dims(bits, 0))
     else:
