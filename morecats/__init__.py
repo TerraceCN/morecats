@@ -29,7 +29,7 @@ hash_model = NeuralHash(
 
 matcher = on_message()
 random_cat = on_command("random_cat")
-rcat = on_command("rcat")
+maomao = on_command("猫猫")
 
 
 @driver.on_startup
@@ -125,7 +125,7 @@ async def handle_images(event: Event, bot: OneBotV11Bot):
 
 
 @random_cat.handle()
-@rcat.handle()
+@maomao.handle()
 async def get_random_cat():
     record = await db.fetch_one(
         ImageTB
