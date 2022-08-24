@@ -8,8 +8,9 @@ services:
     environment:
       HOST: 0.0.0.0
       CAT_IMAGE_DIR: /var/morecats/images
+      CAT_IMAGE_SQLITE: /var/morecats/cat_images.db
     volumes:
-      - ./cat_images:/var/morecats/images
+      - ./data:/var/morecats
     ports:
       - 8080:8080
       
