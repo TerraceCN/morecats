@@ -23,6 +23,8 @@ async def load_hashes():
             .order_by(ImageTB.c.id.asc())
             .limit(10000)
         )
+        if len(records) == 0:
+            break
         last_id = records[-1].id
         HASHES.append(np.array([NeuralHash.hex2bits(i.nhash) for i in records if i.nhash is not None], dtype=bool))
         if len(records) < 10000:
