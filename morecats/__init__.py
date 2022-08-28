@@ -27,7 +27,15 @@ hash_model = NeuralHash(
     "./models/neuralhash.onnx", "./models/neuralhash_128x96_seed1.dat"
 )
 
-matcher = on_message()
+
+def has_images(event: Event) -> bool:
+    for segment in event.get_message():
+        if segment.type == "image":
+            return True
+    return False
+
+
+matcher = on_message(rule=has_images)
 random_cat = on_command("random_cat")
 maomao = on_command("猫猫")
 
