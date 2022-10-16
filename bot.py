@@ -7,6 +7,6 @@ nonebot.init()
 driver = nonebot.get_driver()
 driver.register_adapter(Adapter)
 
-nonebot.load_plugin("morecats")
+nonebot.load_plugin("plugins")
 
 nonebot.run()
