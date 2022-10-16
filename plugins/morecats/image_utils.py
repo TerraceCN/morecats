@@ -46,10 +46,10 @@ def save_image(image: BytesIO, filename: str) -> None:
     if not conf.cat_image_dir:
         return
 
-    if not os.path.exists(conf.cat_image_dir):
-        os.makedirs(conf.cat_image_dir)
+    if not os.path.exists(conf.catimage_dir):
+        os.makedirs(conf.catimage_dir)
     
-    image_path = os.path.join(conf.cat_image_dir, filename)
+    image_path = os.path.join(conf.catimage_dir, filename)
     image.seek(0)
     with open(image_path, "wb") as f:
         f.write(image.read())
