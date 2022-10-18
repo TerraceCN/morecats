@@ -7,7 +7,9 @@ from collections import Counter
 from io import BytesIO
 
 from nonebot import get_driver, on_message
-from nonebot.adapters.onebot.v11 import MessageEvent, MessageSegment, GROUP_ADMIN
+from nonebot.adapters.onebot.v11 import GroupMessageEvent, MessageSegment, Bot
+from nonebot.adapters.onebot.v11 import GROUP_OWNER, GROUP_ADMIN
+from nonebot.permission import SUPERUSER
 from nonebot.params import EventPlainText
 from nonebot.utils import run_sync
 from sqlalchemy import select, and_, between
@@ -35,7 +37,7 @@ async def initialize():
     jieba.initialize()
 
 
-def has_text(event: MessageEvent) -> bool:
+def has_text(event: GroupMessageEvent) -> bool:
     segment: MessageSegment
     for segment in event.get_message():
         if segment.type == "text":
@@ -43,7 +45,7 @@ def has_text(event: MessageEvent) -> bool:
     return False
 
 
-def query_rule(event: MessageEvent) -> bool:
+def query_rule(event: GroupMessageEvent) -> bool:
     for prefix in driver.config.command_start:
         if event.get_plaintext().startswith(f"{prefix}今日成分"):
             return True
@@ -53,11 +55,11 @@ def query_rule(event: MessageEvent) -> bool:
 
 
 matcher = on_message(rule=has_text, priority=2)
-query = on_message(rule=query_rule, priority=1, block=True, permission=GROUP_ADMIN)
+query = on_message(rule=query_rule, priority=1, block=True)
 
 
 @matcher.handle()
-async def handle_text(event: MessageEvent, text: str = EventPlainText()):
+async def handle_text(event: GroupMessageEvent, text: str = EventPlainText()):
     session_id = event.get_session_id()
     user_id = event.get_user_id()
 
@@ -93,17 +95,24 @@ def generate_wordcloud(texts: List[str]) -> BytesIO:
     return bio
 
 
+async def check_permission(bot: Bot, event: GroupMessageEvent) -> bool:
+    if await GROUP_OWNER(bot, event):
+        return True
+    elif await GROUP_ADMIN(bot, event):
+        return True
+    elif await SUPERUSER(bot, event):
+        return True
+    else:
+        return False
+
+
 @query.handle()
-async def handle_query(event: MessageEvent):
+async def handle_query(bot: Bot, event: GroupMessageEvent):
     message = event.get_message()
 
     session_id = event.get_session_id()
     user_id = event.get_user_id()
     group_id = session_id.split("_")[1] if session_id != user_id else None
-
-    if group_id is None:
-        return await query.finish("请在群聊中使用本功能")
-
 
     start_date = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end_date = datetime.now().replace(hour=23, minute=59, second=59, microsecond=999999)
@@ -119,17 +128,22 @@ async def handle_query(event: MessageEvent):
     if len(message) == 1:
         if event.to_me:
             return await query.finish("无法查询机器人的成分")
-        else:
+        elif await check_permission(bot, event):
             conditions = and_(
                 MessageTable.c.group_id == group_id,
                 between(MessageTable.c.time, start_date, end_date),
             )
+        else:
+            return await query.finish("你没有权限查询本群成分")
     elif len(message) == 2 and message[1].type == "at":
-        conditions = and_(
-            MessageTable.c.group_id == group_id,
-            MessageTable.c.user_id == message[1].data["qq"],
-            between(MessageTable.c.time, start_date, end_date),
-        )
+        if await check_permission(bot, event) or message[1].data["qq"] == user_id:
+            conditions = and_(
+                MessageTable.c.group_id == group_id,
+                MessageTable.c.user_id == message[1].data["qq"],
+                between(MessageTable.c.time, start_date, end_date),
+            )
+        else:
+            return await query.finish("你没有权限查询其他人的成分")
     else:
         return await query.finish("参数错误")
 
