@@ -23,6 +23,11 @@ driver = get_driver()
 
 stopword_list: Set[str] = set()
 
+helper = """成分查寻用法：
+/今日成分 [自己|本群|@某人]
+/昨日成分 [自己|本群|@某人]
+本群与某人成分只有管理员或群主可以使用"""
+
 
 @driver.on_startup
 async def initialize():
@@ -128,13 +133,26 @@ async def handle_query(bot: Bot, event: GroupMessageEvent):
     if len(message) == 1:
         if event.to_me:
             return await query.finish("无法查询机器人的成分")
-        elif await check_permission(bot, event):
-            conditions = and_(
-                MessageTable.c.group_id == group_id,
-                between(MessageTable.c.time, start_date, end_date),
-            )
         else:
-            return await query.finish("你没有权限查询本群成分")
+            target = message.extract_plain_text().split(" ")
+            if len(target) == 1:
+                return await query.finish(helper)
+            if target[1] == "本群":
+                if await check_permission(bot, event):
+                    conditions = and_(
+                    MessageTable.c.group_id == group_id,
+                    between(MessageTable.c.time, start_date, end_date),
+                )
+                else:
+                    return await query.finish("权限不足")
+            elif target[1] == "自己":
+                conditions = and_(
+                    MessageTable.c.group_id == group_id,
+                    MessageTable.c.user_id == user_id,
+                    between(MessageTable.c.time, start_date, end_date),
+                )
+            else:
+                return await query.finish(helper)
     elif len(message) == 2 and message[1].type == "at":
         if await check_permission(bot, event) or message[1].data["qq"] == user_id:
             conditions = and_(
@@ -145,6 +163,7 @@ async def handle_query(bot: Bot, event: GroupMessageEvent):
         else:
             return await query.finish("你没有权限查询其他人的成分")
     else:
+        print([i for i in message])
         return await query.finish("参数错误")
 
     texts = await db.fetch_all(

@@ -43,7 +43,7 @@ def save_image(image: BytesIO, filename: str) -> None:
     :params image: BytesIO
     :params filename: filename
     """
-    if not conf.cat_image_dir:
+    if not conf.catimage_dir:
         return
 
     if not os.path.exists(conf.catimage_dir):
