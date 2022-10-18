@@ -153,7 +153,7 @@ async def handle_query(bot: Bot, event: GroupMessageEvent):
                 )
             else:
                 return await query.finish(helper)
-    elif len(message) == 2 and message[1].type == "at":
+    elif len(message) >= 2 and message[1].type == "at":
         if await check_permission(bot, event) or message[1].data["qq"] == user_id:
             conditions = and_(
                 MessageTable.c.group_id == group_id,
@@ -163,7 +163,6 @@ async def handle_query(bot: Bot, event: GroupMessageEvent):
         else:
             return await query.finish("你没有权限查询其他人的成分")
     else:
-        print([i for i in message])
         return await query.finish("参数错误")
 
     texts = await db.fetch_all(
